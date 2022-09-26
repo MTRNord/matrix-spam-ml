@@ -5596,3 +5596,4 @@ ham	Greg, can you call me back once you get this?
 ham	I'm writing a bot. I want to be able to provide the bot with the cross signing recovery key from Element, then have it grab all the room keys from the server. Is that currently possible and if so how?
 ham	O thanks, i'll take a look
 ham	Hello all you Element experts, I'm setting up a homelab with Synapse and Element-web. I have read that there are security downsides in hosting both on the same domain. Can someone confirm whether it is still true, even on different subdomains ?
+ham	Greg, can you call me back once you get this?

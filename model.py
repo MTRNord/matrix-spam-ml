@@ -36,7 +36,7 @@ def remove_stopwords(input_text):
     return " ".join(clean_words)
 
 
-# Remve unknown
+# Remove unknown
 data.dropna(inplace=True)
 
 # Convert label to something useful
@@ -146,6 +146,8 @@ checkpoint_dir = './training_checkpoints'
 # Define the name of the checkpoint files.
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
 
+progress_bar = tf.keras.callbacks.ProgbarLogger()
+
 #es_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
 
 print("[Step 4/9] Creating model")
@@ -191,9 +193,9 @@ tuner = kt.Hyperband(SpamDectionModel(),
                      directory='hyper_tuning',
                      project_name='spam-keras')
 
-stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
 tuner.search(padded, training_labels_final, epochs=800, verbose=0,
-             validation_data=(testing_padded, testing_labels_final), callbacks=[hypertuner_tensorboard_callback, stop_early])
+             validation_data=(testing_padded, testing_labels_final), callbacks=[hypertuner_tensorboard_callback, stop_early, progress_bar])
 # Get the optimal hyperparameters
 best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
 
@@ -211,12 +213,12 @@ history = model.fit(padded,
                     training_labels_final,
                     epochs=num_epochs,
                     verbose=0,
-                    callbacks=[tensorboard_callback, ],
+                    callbacks=[tensorboard_callback, progress_bar],
                     validation_data=(testing_padded, testing_labels_final))
 
 
 val_acc_per_epoch = history.history['val_accuracy']
-best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 1
+best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 5
 print('Best epoch: %d' % (best_epoch,))
 print("Average train loss: ", np.average(history.history['loss']))
 print("Average test loss: ", np.average(history.history['val_loss']))
@@ -227,7 +229,7 @@ hypermodel_history = hypermodel.fit(padded, training_labels_final, verbose=0,
                                     epochs=best_epoch,
                                     callbacks=[hypermodel_tensorboard_callback,
                                                tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
-                                                                                  save_weights_only=True),
+                                                                                  save_weights_only=True), progress_bar,
                                                # es_callback
                                                ], validation_data=(testing_padded, testing_labels_final)
                                     )

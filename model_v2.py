@@ -12,9 +12,6 @@ from nltk.corpus import stopwords
 from tensorflow import keras
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.preprocessing.text import Tokenizer
-from wandb.keras import WandbCallback
-
-import wandb
 
 vocab_size = 1000
 embedding_dim = 16
@@ -198,7 +195,7 @@ def train_hyperparamters(data, labels_final, tuner):
     stop_early = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss', patience=5)
     tuner.search(data, labels_final, epochs=5, verbose=1, validation_split=0.3,
-                 callbacks=[hypertuner_tensorboard_callback, stop_early, progress_bar, WandbCallback()])
+                 callbacks=[hypertuner_tensorboard_callback, stop_early, progress_bar])
 
     # Get the optimal hyperparameters
     best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
@@ -220,7 +217,7 @@ def train_model(data, labels_final, best_hps, tuner):
                         epochs=num_epochs,
                         verbose=1, validation_split=0.3,
                         callbacks=[tensorboard_callback,
-                                   progress_bar, WandbCallback()],)
+                                   progress_bar],)
     val_acc_per_epoch = history.history['val_accuracy']
     best_epoch = val_acc_per_epoch.index(max(val_acc_per_epoch)) + 5
     print('Best epoch: %d' % (best_epoch,))
@@ -232,7 +229,7 @@ def train_model(data, labels_final, best_hps, tuner):
                                         epochs=best_epoch, validation_split=0.3,
                                         callbacks=[hypermodel_tensorboard_callback,
                                                    tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix,
-                                                                                      save_weights_only=True), progress_bar, WandbCallback(),
+                                                                                      save_weights_only=True), progress_bar
                                                    # es_callback
                                                    ]
                                         )
@@ -285,8 +282,6 @@ def test_model(vectorize_layer, model):
 
 def main():
     print("TensorFlow version:", tf.__version__)
-    # wandb.tensorboard.patch(root_logdir="logs/scalars/")
-    wandb.init(project="matrix-spam", entity="mtrnord")
     print("[Step 1/6] Loading data")
     vectorize_layer, data, labels_final = load_data()
     model = SpamDectionHyperModel(

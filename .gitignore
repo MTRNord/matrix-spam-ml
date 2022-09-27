@@ -3,3 +3,4 @@
 /hypertuner_logs
 /target
 /logs
+/wandb

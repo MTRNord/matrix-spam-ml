@@ -49,11 +49,11 @@ class SpamDectionModel(tf.keras.Model):
     def __init__(self, vocab_size, embedding_dim, max_length, hp_units, hp_dropout, hp_l2):
         super(SpamDectionModel, self).__init__()
         self.embedding = tf.keras.layers.Embedding(
-            vocab_size, embedding_dim, input_length=max_length, name="text_input"),
-        self.glob_average_pooling_1d = tf.keras.layers.GlobalAveragePooling1D(),
-        self.dropout = tf.keras.layers.Dropout(hp_dropout,),
+            vocab_size, embedding_dim, input_length=max_length, name="text_input")
+        self.glob_average_pooling_1d = tf.keras.layers.GlobalAveragePooling1D()
+        self.dropout = tf.keras.layers.Dropout(hp_dropout,)
         self.dense1 = tf.keras.layers.Dense(units=hp_units, activation='relu',
-                                            kernel_regularizer=tf.keras.regularizers.l2(hp_l2)),
+                                            kernel_regularizer=tf.keras.regularizers.l2(hp_l2))
         # tf.keras.layers.Dense(6, activation='relu',
         #                      kernel_regularizer=tf.keras.regularizers.l2(0.0001)),
         self.dense2 = tf.keras.layers.Dense(
@@ -115,20 +115,47 @@ def remove_stopwords(input_text):
 def change_labels(x): return 1 if x == "spam" else 0
 
 
-def tokenize_data(training_sentences, testing_sentences):
-    tokenizer = Tokenizer(num_words=vocab_size, oov_token=oov_tok)
+def tokenize_data(data, training_sentences, testing_sentences):
+    #tokenizer = Tokenizer(num_words=vocab_size, oov_token=oov_tok)
 
-    tokenizer.fit_on_texts(training_sentences)
+    # tokenizer.fit_on_texts(training_sentences)
 
-    sequences = tokenizer.texts_to_sequences(training_sentences)
-    padded = pad_sequences(sequences, maxlen=max_length, padding=padding_type,
-                           truncating=trunc_type)
+    #sequences = tokenizer.texts_to_sequences(training_sentences)
+    # padded = pad_sequences(sequences, maxlen=max_length, padding=padding_type,
+    #                       truncating=trunc_type)
 
-    testing_sequences = tokenizer.texts_to_sequences(testing_sentences)
-    testing_padded = pad_sequences(testing_sequences, maxlen=max_length,
-                                   padding=padding_type, truncating=trunc_type)
+    #testing_sequences = tokenizer.texts_to_sequences(testing_sentences)
+    # testing_padded = pad_sequences(testing_sequences, maxlen=max_length,
+    #                               padding=padding_type, truncating=trunc_type)
 
-    return padded, testing_padded, tokenizer
+    vectorize_layer = tf.keras.layers.TextVectorization(
+        max_tokens=vocab_size,
+        output_mode='int',
+        output_sequence_length=max_length)
+
+    # Now that the vocab layer has been created, call `adapt` on the text-only
+    # dataset to create the vocabulary. You don't have to batch, but for large
+    # datasets this means we're not keeping spare copies of the dataset.
+    vectorize_layer.adapt(data)
+
+    # Create the model that uses the vectorize text layer
+    model = tf.keras.models.Sequential()
+    # Start by creating an explicit input layer. It needs to have a shape of
+    # (1,) (because we need to guarantee that there is exactly one string
+    # input per batch), and the dtype needs to be 'string'.
+    model.add(tf.keras.Input(shape=(1,), dtype=tf.string))
+
+    # The first layer in our model is the vectorization layer. After this
+    # layer, we have a tensor of shape (batch_size, max_len) containing vocab
+    # indices.
+    model.add(vectorize_layer)
+
+    # Now, the model can map strings to integers, and you can add an embedding
+    # layer to map these integers to learned embeddings.
+    padded = model.predict(training_sentences)
+    testing_padded = model.predict(testing_sentences)
+
+    return padded, testing_padded  # , tokenizer
 
 
 def load_data():
@@ -159,14 +186,15 @@ def load_data():
     # Make labels into numpy arrays for use with the network later
     training_labels_final = np.array(training_labels)
     testing_labels_final = np.array(testing_labels)
-
-    return tokenize_data(training_sentences, testing_sentences), training_labels_final, testing_labels_final
+    padded, testing_padded = tokenize_data(
+        sentences, training_sentences, testing_sentences)
+    return padded, testing_padded, training_labels_final, testing_labels_final, sentences
 
 
 def train_hyperparamters(padded, training_labels_final, testing_padded, testing_labels_final, tuner):
     stop_early = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss', patience=10)
-    tuner.search(padded, training_labels_final, epochs=800, verbose=0,
+        monitor='val_loss', patience=5)
+    tuner.search(padded, training_labels_final, epochs=5, verbose=1,
                  validation_data=(testing_padded, testing_labels_final), callbacks=[hypertuner_tensorboard_callback, stop_early, progress_bar])
 
     # Get the optimal hyperparameters
@@ -214,7 +242,7 @@ def train_model(padded, training_labels_final, testing_padded, testing_labels_fi
     return hypermodel
 
 
-def test_model(tokenizer, model):
+def test_model(sentences, model):
     # Use the model to predict whether a message is spam
     text_messages = ['Greg, can you call me back once you get this?',
                      'Congrats on your new iPhone! Click here to claim your prize...',
@@ -240,11 +268,19 @@ def test_model(tokenizer, model):
 
     # Create the sequences
     padding_type = 'post'
-    sample_sequences = tokenizer.texts_to_sequences(text_messages)
-    fakes_padded = pad_sequences(
-        sample_sequences, padding=padding_type, maxlen=max_length)
+    #sample_sequences = tokenizer.texts_to_sequences(text_messages)
+    # fakes_padded = pad_sequences(
+    #    sample_sequences, padding=padding_type, maxlen=max_length)
 
-    classes = model.predict(fakes_padded)
+    vectorize_layer = tf.keras.layers.TextVectorization(
+        output_mode='int',
+        output_sequence_length=max_length)
+    vectorize_layer.adapt(sentences)
+    vectorize_model = tf.keras.models.Sequential()
+    vectorize_model.add(tf.keras.Input(shape=(1,), dtype=tf.string))
+    vectorize_model.add(vectorize_layer)
+    sequences = vectorize_model.predict(text_messages)
+    classes = model.predict(sequences)
 
     # The closer the class is to 1, the more likely that the message is spam
     for x in range(len(text_messages)):
@@ -255,14 +291,13 @@ def test_model(tokenizer, model):
 
 def main():
     print("[Step 1/6] Loading data")
-    padded, testing_padded, tokenizer, training_labels_final, testing_labels_final = load_data()
+    padded, testing_padded, training_labels_final, testing_labels_final, sentences = load_data()
     model = SpamDectionHyperModel()
-    print("[Step 2/6] Plotting model")
-    tf.keras.utils.plot_model(model, rankdir="LR", show_shapes=True)
-    tuner = kt.Hyperband(model,
+    #print("[Step 2/6] Plotting model")
+    #tf.keras.utils.plot_model(model, rankdir="LR", show_shapes=True)
+    tuner = kt.Hyperband(model, hyperband_iterations=2,
                          objective='val_accuracy',
-                         max_epochs=750,
-                         factor=3,
+                         max_epochs=200,
                          directory='hyper_tuning',
                          project_name='spam-keras')
     print("[Step 3/6] Tuning hypervalues")
@@ -279,7 +314,7 @@ def main():
     model.save(export_path)
 
     print("[Step 6/6] Testing model")
-    test_model(tokenizer, model)
+    test_model(sentences, model)
 
 
 if __name__ == "__main__":

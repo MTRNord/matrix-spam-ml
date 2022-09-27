@@ -188,13 +188,13 @@ class SpamDectionModel(kt.HyperModel):
 print("[Step 5/9] Tuning hypervalues")
 tuner = kt.Hyperband(SpamDectionModel(),
                      objective='val_accuracy',
-                     max_epochs=750,
+                     max_epochs=350,
                      factor=3,
                      directory='hyper_tuning',
                      project_name='spam-keras')
 
-stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
-tuner.search(padded, training_labels_final, epochs=800, verbose=0,
+stop_early = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+tuner.search(padded, training_labels_final, epochs=400, verbose=0,
              validation_data=(testing_padded, testing_labels_final), callbacks=[hypertuner_tensorboard_callback, stop_early, progress_bar])
 # Get the optimal hyperparameters
 best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]

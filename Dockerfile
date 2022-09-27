@@ -1,7 +1,7 @@
 FROM rust:1.64 as builder
 
 WORKDIR /app
-COPY ./crates /app
+COPY ./crates /app/crates
 COPY ./Cargo.toml /app
 COPY ./Cargo.lock /app
 RUN cargo build --release

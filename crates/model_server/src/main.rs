@@ -143,23 +143,62 @@ async fn submit_for_review(
 }
 
 #[derive(Deserialize, Serialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 struct TestData {
     input_data: String,
 }
 
 #[derive(Deserialize, Serialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 struct Prediction {
     input_data: String,
     score: f32,
 }
 
 #[derive(Deserialize, Serialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 struct SubmitData {
     input_data: String,
     spam: bool,
 }
 
 #[derive(Deserialize, Serialize)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 struct SubmitReview {
     input_data: String,
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Prediction, SubmitData, SubmitReview, TestData};
+
+    #[test]
+    fn generate_schema() {
+        let test_data_schema = schemars::schema_for!(TestData);
+        let prediction_schema = schemars::schema_for!(Prediction);
+        let submit_data_schema = schemars::schema_for!(SubmitData);
+        let submit_review_schema = schemars::schema_for!(SubmitReview);
+
+        std::fs::create_dir_all("./schemas").unwrap();
+        std::fs::write(
+            "./schemas/test_data.json",
+            serde_json::to_string_pretty(&test_data_schema).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            "./schemas/prediction.json",
+            serde_json::to_string_pretty(&prediction_schema).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            "./schemas/submit_data.json",
+            serde_json::to_string_pretty(&submit_data_schema).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            "./schemas/submit_review.json",
+            serde_json::to_string_pretty(&submit_review_schema).unwrap(),
+        )
+        .unwrap();
+    }
 }

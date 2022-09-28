@@ -45,6 +45,8 @@ It will return a JSON response with the following format:
 }
 ```
 
+You do not have to strip urls like in the training data. However it might yield better results if you strip the html tags.
+
 ## Support
 
 For support you can join [#matrix-spam-ml:midnightthoughts.space](https://matrix.to/#/#matrix-spam-ml:midnightthoughts.space) on Matrix.

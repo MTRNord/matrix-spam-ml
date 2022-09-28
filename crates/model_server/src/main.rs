@@ -1,12 +1,14 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use axum_auth::AuthBearer;
 use color_eyre::eyre::{bail, Result};
+use linkify::LinkFinder;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::{fs::OpenOptions, net::SocketAddr};
 use tensorflow::{Graph, SavedModelBundle, SessionOptions, SessionRunArgs, Tensor};
 use tracing::{debug, error, info};
+use voca_rs::strip;
 
 static GRAPH: OnceCell<Graph> = OnceCell::new();
 static MODEL: OnceCell<SavedModelBundle> = OnceCell::new();
@@ -126,9 +128,21 @@ async fn submit_for_review(
         .append(true)
         .create(true)
         .open("./data/review.txt");
+
+    // Sanitize
+    // We remove newlines, html tags and links
+    let sanitized = payload.input_data.replace(['\r', '\n'], " ");
+    let mut sanitized = strip::strip_tags(&sanitized);
+    let mut finder = LinkFinder::new();
+    let cloned_sanitized = sanitized.clone();
+    finder.url_must_have_scheme(false);
+    let links: Vec<_> = finder.links(&cloned_sanitized).collect();
+    for link in links {
+        sanitized = sanitized.replace(link.as_str(), " ");
+    }
     match file {
         Ok(mut file) => {
-            if let Err(e) = writeln!(file, "{}", payload.input_data) {
+            if let Err(e) = writeln!(file, "{}", sanitized) {
                 eprintln!("Couldn't write to file: {}", e);
                 return StatusCode::INTERNAL_SERVER_ERROR;
             }

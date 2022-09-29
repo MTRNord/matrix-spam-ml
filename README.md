@@ -41,7 +41,7 @@ It will return a JSON response with the following format:
 ```json5
 {
     "input_data": "This is a message to be classified",
-    "score": 1.1349515e-24, # Note that this is a float
+    "score": 1.1349515e-24, // Note that this is a float
 }
 ```
 

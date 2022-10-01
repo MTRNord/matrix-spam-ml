@@ -53,12 +53,9 @@ async fn test(Json(payload): Json<TestData>) -> impl IntoResponse {
     let graph = GRAPH.get().unwrap();
     let session = &bundle.session;
     let meta = bundle.meta_graph_def();
-    debug!("Signatures: {:#?}", meta.signatures());
     let signature = meta
         .get_signature(tensorflow::DEFAULT_SERVING_SIGNATURE_DEF_KEY)
         .unwrap();
-    debug!("Inputs: {:#?}", signature.inputs());
-    debug!("Outputs: {:#?}", signature.outputs());
     let input_info = signature.get_input("input_1").unwrap();
     let output_info = signature.get_output("output_1").unwrap();
 
@@ -131,8 +128,9 @@ async fn submit_for_review(
 
     // Sanitize
     // We remove newlines, html tags and links
-    let sanitized = payload.input_data.replace(['\r', '\n'], " ");
-    let mut sanitized = strip::strip_tags(&sanitized);
+    let sanitized = strip::strip_tags(&payload.input_data);
+    let sanitized = sanitized.replace(['\r', '\n'], " ");
+    let mut sanitized = trim_whitespace(&sanitized);
     let mut finder = LinkFinder::new();
     let cloned_sanitized = sanitized.clone();
     finder.url_must_have_scheme(false);
@@ -154,6 +152,17 @@ async fn submit_for_review(
     }
 
     StatusCode::OK
+}
+
+fn trim_whitespace(s: &str) -> String {
+    let mut new_str = s.trim().to_owned();
+    let mut prev = ' '; // The initial value doesn't really matter
+    new_str.retain(|ch| {
+        let result = ch != ' ' || prev != ' ';
+        prev = ch;
+        result
+    });
+    new_str
 }
 
 #[derive(Deserialize, Serialize)]

@@ -1,11 +1,23 @@
 
 # cargo-vet audits file
 
+[[audits.aho-corasick]]
+who = "MTRNord <mtrnord1@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.7.19"
+notes = "Looks sane, has testing. Didnt fully review it. Has some unsafe due to using simd"
+
 [[audits.axum-auth]]
 who = "MTRNord <mtrnord1@gmail.com>"
 criteria = "safe-to-deploy"
 version = "0.3.0"
 notes = "Only extracts headers and does basic splitting. No unsafe code and seems sane"
+
+[[audits.linkify]]
+who = "MTRNord <mtrnord1@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.9.0"
+notes = "Seems to be doing what it claims, has benches and tests that make sense."
 
 [[audits.openssl-sys]]
 who = "MTRNord <mtrnord1@gmail.com>"
@@ -18,4 +30,10 @@ who = "MTRNord <mtrnord1@gmail.com>"
 criteria = "safe-to-deploy"
 delta = "1.21.1 -> 1.21.2"
 notes = "Removes a dependecy and inlines it. Code seems simple enough and has safety explained. Looks sane."
+
+[[audits.voca_rs]]
+who = "MTRNord <mtrnord1@gmail.com>"
+criteria = "safe-to-deploy"
+version = "1.14.0"
+notes = "Does what it claims, no unsafe code, seems to have no tests"
 

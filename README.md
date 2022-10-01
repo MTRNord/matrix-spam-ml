@@ -18,6 +18,11 @@ Newlines will be stripped anyway and URLs tend to break the model result.
 To train the model, run `python3 model_v2.py`. This will train the model and save it to `./model/`.
 Please make sure you installed tensorflow.
 
+#### Notes about the data
+
+Please ensure to remove all urls, html tags and new lines. Also make sure to strip duplicate whitespace.
+All of these reduce accuracy easily.
+
 ### Running the server
 
 To run the server, run `cargo run --release`. This will start the server on port `3000`.

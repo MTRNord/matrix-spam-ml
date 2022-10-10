@@ -1,3 +1,5 @@
+use askama_axum::Template;
+use axum::routing::get;
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use axum_auth::AuthBearer;
 use color_eyre::eyre::{bail, Result};
@@ -7,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::{fs::OpenOptions, net::SocketAddr};
 use tensorflow::{Graph, SavedModelBundle, SessionOptions, SessionRunArgs, Tensor};
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use voca_rs::strip;
 
 static GRAPH: OnceCell<Graph> = OnceCell::new();
@@ -33,6 +35,8 @@ async fn main() -> Result<()> {
 
     // build our application with a route
     let app = Router::new()
+        .route("/", get(index))
+        .route("/health", get(health))
         // `GET /test` goes to `test`
         .route("/test", post(test))
         // `POST /submit` goes to `submit`
@@ -46,6 +50,18 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
     Ok(())
+}
+
+async fn health() -> impl IntoResponse {
+    StatusCode::OK
+}
+
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {}
+
+async fn index() -> IndexTemplate {
+    IndexTemplate {}
 }
 
 async fn test(Json(payload): Json<TestData>) -> impl IntoResponse {

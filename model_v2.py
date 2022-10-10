@@ -173,11 +173,14 @@ def tokenize_data(data):
 
 def load_data():
     data = pd.read_csv(
-        "./input/MatrixData", sep="\t", quoting=csv.QUOTE_NONE, encoding="utf-8"
+        "./input/MatrixData.tsv", sep="\t", quoting=csv.QUOTE_NONE, encoding="utf-8"
     )
 
+    # Minimum length
+    data = data[df["message"].str.split().str.len().gt(18)]
     # Remove unknown
     data.dropna(inplace=True)
+    data.reset_index(drop=True, inplace=True)
     data["label"] = data["label"].apply(change_labels)
 
     # Remove stopwords
@@ -345,6 +348,7 @@ def test_model(vectorize_layer, model):
         "Room version 11 when",
         "skip 11 and go straight to 12",
         "100 events should clear out any events that might be causing a request to fail lol",
+        "I'll help anyone interested on how to invest and earn $30k, $50k, $100k, $200k or more in just 72hours from the crypto market.But you will have to pay me my commission! when you receive your profit! if interested send me a direct message let's get started or via WhatsApp +1 (605) 953‑6801",
     ]
 
     spam_no_spam = [
@@ -367,6 +371,7 @@ def test_model(vectorize_layer, model):
         False,
         False,
         False,
+        True,
     ]
 
     # print(text_messages)

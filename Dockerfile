@@ -7,10 +7,11 @@ COPY ./Cargo.lock /app
 RUN cargo build --release
 RUN ls -la target/release/build/tensorflow-sys-*/out
 RUN find / -name libtensorflow*
-RUN ldd /app/target/release/model_server
 
 RUN find . -type f -name libtensorflow.so.2 -exec cp {} /usr/lib/ \; \
     && find . -type f -name libtensorflow_framework.so.2 -exec cp {} /usr/lib/ \;
+RUN ldconfig
+RUN ldd /app/target/release/model_server
 
 ENV MODEL_PATH /app/models/matrix_spam
 # Copy the model files to the image

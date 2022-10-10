@@ -17,4 +17,5 @@ ENV MODEL_PATH /app/models/matrix_spam
 # Copy the model files to the image
 COPY ./models/spam_keras_1664583738.3207538 /app/models/matrix_spam
 
+EXPOSE 3000
 CMD ["/app/target/release/model_server"]

@@ -24,6 +24,9 @@ COPY ./crates /app/crates
 COPY ./Cargo.toml /app
 COPY ./Cargo.lock /app
 RUN cargo build --release
+RUN ls -la target/release/build/tensorflow-sys-*/out
+RUN find / -name libtensorflow*
+RUN ldd /app/target/release/model_server
 
 ENV MODEL_PATH /app/models/matrix_spam
 # Copy the model files to the image

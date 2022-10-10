@@ -1,23 +1,4 @@
-FROM rust:1.64 as builder
-
-# Install tensorflow
-RUN apt-get update && apt-get install -y curl
-
-# See http://bugs.python.org/issue19846
-ENV LANG C.UTF-8
-
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip
-
-RUN python3 -m pip --no-cache-dir install --upgrade \
-    "pip<20.3" \
-    setuptools
-
-# Some TF tools expect a "python" binary
-RUN ln -s $(which python3) /usr/local/bin/python
-
-RUN python3 -m pip install --no-cache-dir tensorflow
+FROM rust:1.64
 
 WORKDIR /app
 COPY ./crates /app/crates
@@ -27,6 +8,9 @@ RUN cargo build --release
 RUN ls -la target/release/build/tensorflow-sys-*/out
 RUN find / -name libtensorflow*
 RUN ldd /app/target/release/model_server
+
+RUN find . -type f -name libtensorflow.so.2 -exec cp {} /usr/lib/ \; \
+    && find . -type f -name libtensorflow_framework.so.2 -exec cp {} /usr/lib/ \;
 
 ENV MODEL_PATH /app/models/matrix_spam
 # Copy the model files to the image

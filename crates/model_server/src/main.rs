@@ -61,6 +61,7 @@ async fn health() -> impl IntoResponse {
 struct IndexTemplate {}
 
 async fn index() -> IndexTemplate {
+    info!("index");
     IndexTemplate {}
 }
 

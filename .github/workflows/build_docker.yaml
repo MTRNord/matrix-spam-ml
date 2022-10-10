@@ -16,6 +16,10 @@ jobs:
       contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+      - run: git lfs pull
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
@@ -29,5 +33,6 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
+          context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

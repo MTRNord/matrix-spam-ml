@@ -5,7 +5,7 @@ COPY ./crates /app/crates
 COPY ./Cargo.toml /app
 COPY ./Cargo.lock /app
 RUN cargo build --release
-RUN ls -la ./target && ls -la ./target/release && ls -la /app/target/ && ls -la /app/target/release/
+RUN pwd && ls -la ./target && ls -la ./target/release && ls -la /app/target/ && ls -la /app/target/release/
 
 ENV MODEL_PATH /app/models/matrix_spam
 # Copy the model files to the image

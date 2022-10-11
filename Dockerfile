@@ -2,7 +2,7 @@ FROM rust:1.64
 
 WORKDIR /app
 COPY ./crates /app/crates
-COPY ./crates/templates /app/templates
+COPY ./crates/model_server/templates /app/templates
 COPY ./Cargo.toml /app
 COPY ./Cargo.lock /app
 RUN cargo build --release

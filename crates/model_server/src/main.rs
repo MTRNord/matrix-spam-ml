@@ -7,6 +7,7 @@ use linkify::LinkFinder;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::{fs::OpenOptions, net::SocketAddr};
 use tensorflow::{Graph, SavedModelBundle, SessionOptions, SessionRunArgs, Tensor};
 use tracing::{error, info};
@@ -43,12 +44,12 @@ async fn main() -> Result<()> {
         .route("/submit", post(submit))
         .route("/submit_review", post(submit_for_review));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    info!("listening on {}", addr);
-    axum::Server::bind(&addr)
+    let all_v6 = SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3000);
+
+    info!("listening on port 3000");
+    axum::Server::bind(&all_v6)
         .serve(app.into_make_service())
-        .await
-        .unwrap();
+        .await?;
     Ok(())
 }
 

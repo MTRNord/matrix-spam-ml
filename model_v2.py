@@ -1,20 +1,15 @@
 import csv
 import os
-import re
 import time
 from datetime import datetime
 
 import keras_tuner as kt
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import tensorflow_addons as tfa
 import tensorflow_hub as hub
 from nltk.corpus import stopwords
 from tensorflow import keras
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.preprocessing.text import Tokenizer
 
 vocab_size = 1000
 # embedding_dim = 16
@@ -141,7 +136,7 @@ def load_data():
     )
 
     # Minimum length
-    data = data[df["message"].str.split().str.len().gt(18)]
+    data = data[data["message"].str.split().str.len().gt(18)]
     # Remove unknown
     data.dropna(inplace=True)
     data.reset_index(drop=True, inplace=True)

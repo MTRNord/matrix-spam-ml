@@ -52,6 +52,25 @@ It will return a JSON response with the following format:
 
 You do not have to strip urls like in the training data. However it might yield better results if you strip the html tags.
 
+## Ethical use/How the usage of the model is intended
+
+The model is trained mainly on SMS and matrix spam.
+It is not curently checked for racism or other discrimination factors against other groups.
+It is also at this time not checked how exactly it reacts to various scenarios.
+Therefor please keep this in mind while using the model.
+
+Additionally the model was designed as a warning systems for admins and not as an automod.
+This is important as a warning system has a lot wider tollerances while an automod should be very certain to take actions against people.
+
+While following this paragraph isnt mandatory I hope you keep it in mind and use this model ethically and not for discrimination in the network.
+
+## Future Plans
+
+- [ ] Mjolnir plugin/patch for collecting spam and using it to retrain the model.
+- [ ] Balancing the sample data
+- [ ] Synapse Plugin to use as an automute bot across the whole HS.
+- [ ] Mjolnir plugin that allows applying the suggestions
+
 ## Support
 
 For support you can join [#matrix-spam-ml:midnightthoughts.space](https://matrix.to/#/#matrix-spam-ml:midnightthoughts.space) on Matrix.

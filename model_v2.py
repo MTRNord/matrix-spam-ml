@@ -12,9 +12,6 @@ from nltk.corpus import stopwords
 from tensorflow import keras
 
 vocab_size = 1000
-# embedding_dim = 16
-# embedding_dim = 32
-# embedding_dim = 64
 
 
 logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")

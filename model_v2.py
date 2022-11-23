@@ -43,16 +43,8 @@ progress_bar = tf.keras.callbacks.ProgbarLogger()
 
 
 class SpamDectionModel(tf.keras.Model):
-    def __init__(self, vectorize_layer, hp_embedding_dim, hp_dense1, hp_dropout, hp_l2):
+    def __init__(self, hp_dense1, hp_dropout, hp_l2):
         super(SpamDectionModel, self).__init__()
-        # self.vectorize_layer = vectorize_layer
-        # self.embedding = tf.keras.layers.Embedding(
-        #    input_dim=len(vectorize_layer.get_vocabulary()) + 1,
-        #    output_dim=hp_embedding_dim,
-        #    name="text_input",
-        #    embeddings_initializer="uniform",
-        #    # mask_zero=True,
-        # )
         self.dropout = tf.keras.layers.Dropout(
             hp_dropout,
         )
@@ -75,9 +67,6 @@ class SpamDectionModel(tf.keras.Model):
 
     @tf.function
     def call(self, x, training=False):
-        # x = self.vectorize_layer(x)
-        # x = self.embedding(x)
-        # x = self.glob_average_pooling_1d(x)
         x = self.use_layer(x)
         if training:
             x = self.dropout(x, training=training)
@@ -88,22 +77,16 @@ class SpamDectionModel(tf.keras.Model):
 
 
 class SpamDectionHyperModel(kt.HyperModel):
-    def __init__(self, vectorize_layer):
+    def __init__(self):
         super(SpamDectionHyperModel, self).__init__()
-        self.vectorize_layer = vectorize_layer
 
     def build(self, hp):
         # Tune the number of units in the first Dense layer
         # Choose an optimal value between 6-512
         hp_dense1 = hp.Int("dense1", min_value=6, max_value=512, step=12)
-        hp_embedding_dim = hp.Int(
-            "embedding_dim", min_value=300, max_value=512, step=16
-        )
         hp_dropout = hp.Float("dropout", min_value=0.1, max_value=0.9, step=0.1)
         hp_l2 = hp.Float("l2", min_value=0.0001, max_value=0.001, step=0.0001)
         model = SpamDectionModel(
-            self.vectorize_layer,
-            hp_embedding_dim + 1,
             hp_dense1,
             hp_dropout,
             hp_l2,
@@ -152,25 +135,6 @@ def remove_stopwords(input_text):
 def change_labels(x):
     return 1 if x == "spam" else 0
 
-
-def tokenize_data(data):
-    vectorize_layer = tf.keras.layers.TextVectorization(
-        max_tokens=vocab_size,
-        output_mode="int",
-        standardize="lower_and_strip_punctuation",
-    )
-
-    # Now that the vocab layer has been created, call `adapt` on the text-only
-    # dataset to create the vocabulary. You don't have to batch, but for large
-    # datasets this means we're not keeping spare copies of the dataset.
-    vectorize_layer.adapt(data)
-
-    # vocab = np.array(vectorize_layer.get_vocabulary())
-    # print(f"First 20 of Vocab: {vocab[:20]}")
-
-    return vectorize_layer
-
-
 def load_data():
     data = pd.read_csv(
         "./input/MatrixData.tsv", sep="\t", quoting=csv.QUOTE_NONE, encoding="utf-8"
@@ -206,9 +170,7 @@ def load_data():
     training_labels_final = np.array(training_labels)
     training_sentences_final = np.array(training_sentences)
     testing_sentences_final = np.array(testing_sentences)
-    vectorize_layer = tokenize_data(sentences)
     return (
-        vectorize_layer,
         training_sentences_final,
         testing_sentences_final,
         training_labels_final,
@@ -249,17 +211,14 @@ def train_hyperparamters(
 
 
 def train_model(
-    vectorize_layer,
     training_sentences_final,
     testing_sentences_final,
     training_labels_final,
     testing_labels_final,
-    # best_hps,
-    # tuner,
+    best_hps,
+    tuner,
 ):
     model = SpamDectionModel(
-        vectorize_layer,
-        0,
         64,
         0.2,
         0,
@@ -270,7 +229,7 @@ def train_model(
         metrics=["accuracy"],
     )
     num_epochs = 200
-    # model = tuner.hypermodel.build(best_hps)
+    model = tuner.hypermodel.build(best_hps)
     history = model.fit(
         training_sentences_final,
         training_labels_final,
@@ -286,8 +245,6 @@ def train_model(
     print("Average test loss: ", np.average(history.history["val_loss"]))
 
     model = SpamDectionModel(
-        vectorize_layer,
-        0,
         64,
         0.2,
         0,
@@ -297,8 +254,8 @@ def train_model(
         optimizer=tf.keras.optimizers.Adam(),
         metrics=["accuracy"],
     )
-    # hypermodel = tuner.hypermodel.build(best_hps)
-    hypermodel_history = model.fit(
+    hypermodel = tuner.hypermodel.build(best_hps)
+    hypermodel_history = hypermodel.fit(
         training_sentences_final,
         training_labels_final,
         verbose=1,
@@ -310,7 +267,6 @@ def train_model(
             #    filepath=checkpoint_prefix, save_weights_only=True
             # ),
             progress_bar
-            # es_callback
         ],
     )
 
@@ -326,7 +282,7 @@ def train_model(
     return model
 
 
-def test_model(vectorize_layer, model):
+def test_model(model):
     # Use the model to predict whether a message is spam
     text_messages = [
         "Greg, can you call me back once you get this?",
@@ -400,39 +356,37 @@ def main():
     print("TensorFlow version:", tf.__version__)
     print("[Step 1/6] Loading data")
     (
-        vectorize_layer,
         training_sentences_final,
         testing_sentences_final,
         training_labels_final,
         testing_labels_final,
     ) = load_data()
 
-    # model = SpamDectionHyperModel(vectorize_layer)
-    # tuner = kt.Hyperband(
-    #    model,
-    #    objective="val_accuracy",
-    #    max_epochs=100,
-    #    directory="hyper_tuning",
-    #    project_name="spam-keras",
-    # )
-    # print("[Step 3/6] Tuning hypervalues")
-    # best_hps = train_hyperparamters(
-    #    training_sentences_final,
-    #    testing_sentences_final,
-    #    training_labels_final,
-    #    testing_labels_final,
-    #    tuner,
-    # )
+    model = SpamDectionHyperModel()
+    tuner = kt.Hyperband(
+       model,
+       objective="val_accuracy",
+       max_epochs=100,
+       directory="hyper_tuning",
+       project_name="spam-keras",
+    )
+    print("[Step 3/6] Tuning hypervalues")
+    best_hps = train_hyperparamters(
+       training_sentences_final,
+       testing_sentences_final,
+       training_labels_final,
+       testing_labels_final,
+       tuner,
+    )
 
     print("[Step 4/6] Training model")
     model = train_model(
-        vectorize_layer,
         training_sentences_final,
         testing_sentences_final,
         training_labels_final,
         testing_labels_final,
-        # best_hps,
-        # tuner,
+        best_hps,
+        tuner,
     )
 
     print("[Step 5/6] Saving model")
@@ -442,7 +396,7 @@ def main():
     model.save(export_path)
 
     print("[Step 6/6] Testing model")
-    test_model(vectorize_layer, model)
+    test_model(model)
 
 
 if __name__ == "__main__":

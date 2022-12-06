@@ -195,7 +195,6 @@ def train_hyperparamters(
     The hyperparameter search is complete. The optimal number of units in the first densely-connected
     layer is {best_hps.get('dense1')} and the optimal learning rate for the optimizer is {best_hps.get('learning_rate')}.
     The optimal dropout rate is {best_hps.get('dropout')} and the optimal l2 rate is {best_hps.get('l2')}.
-    The optimal embedding_dim is {best_hps.get('embedding_dim')}.
     """
     )
 

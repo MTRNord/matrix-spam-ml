@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
 
     let mut graph = Graph::new();
     let bundle =
-        SavedModelBundle::load(&SessionOptions::new(), &["serve"], &mut graph, model_path)?;
+        SavedModelBundle::load(&SessionOptions::new(), ["serve"], &mut graph, model_path)?;
     GRAPH.set(graph).unwrap();
     MODEL.set(bundle).unwrap();
 

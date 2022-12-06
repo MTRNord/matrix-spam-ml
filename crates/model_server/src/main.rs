@@ -2,12 +2,13 @@ use askama_axum::Template;
 use axum::routing::get;
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use axum_auth::AuthBearer;
+use axum_macros::debug_handler;
 use color_eyre::eyre::{bail, Result};
 use linkify::LinkFinder;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::Ipv6Addr;
 use std::{fs::OpenOptions, net::SocketAddr};
 use tensorflow::{Graph, SavedModelBundle, SessionOptions, SessionRunArgs, Tensor};
 use tracing::{error, info};
@@ -103,9 +104,10 @@ async fn test(Json(payload): Json<TestData>) -> impl IntoResponse {
     (StatusCode::OK, Json(response))
 }
 
+#[debug_handler]
 async fn submit(
-    Json(payload): Json<SubmitData>,
     AuthBearer(token): AuthBearer,
+    Json(payload): Json<SubmitData>,
 ) -> impl IntoResponse {
     let access_token = match std::env::var("ACCESS_TOKEN") {
         Ok(val) => val,
@@ -122,9 +124,10 @@ async fn submit(
     StatusCode::NOT_IMPLEMENTED
 }
 
+#[debug_handler]
 async fn submit_for_review(
-    Json(payload): Json<SubmitReview>,
     AuthBearer(token): AuthBearer,
+    Json(payload): Json<SubmitReview>,
 ) -> impl IntoResponse {
     let access_token = match std::env::var("ACCESS_TOKEN") {
         Ok(val) => val,

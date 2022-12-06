@@ -270,7 +270,7 @@ def train_model(
         np.average(hypermodel_history.history["val_loss"]),
     )
 
-    return model
+    return hypermodel
 
 
 def test_model(model):

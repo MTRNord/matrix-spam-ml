@@ -127,6 +127,7 @@ def remove_stopwords(input_text):
 def change_labels(x):
     return 1 if x == "spam" else 0
 
+
 def load_data():
     data = pd.read_csv(
         "./input/MatrixData.tsv", sep="\t", quoting=csv.QUOTE_NONE, encoding="utf-8"
@@ -257,7 +258,7 @@ def train_model(
             # tf.keras.callbacks.ModelCheckpoint(
             #    filepath=checkpoint_prefix, save_weights_only=True
             # ),
-            progress_bar
+            progress_bar,
         ],
     )
 
@@ -327,6 +328,8 @@ def test_model(model):
     classes = model.predict(np.array(text_messages))
 
     # The closer the class is to 1, the more likely that the message is spam
+    correct = 0
+    expected = len(spam_no_spam)
     for x in range(len(text_messages)):
         print(f'Message: "{text_messages[x]}"')
         print(f"Likeliness of spam in percentage: {classes[x][0]:.5f}")
@@ -338,8 +341,10 @@ def test_model(model):
         if spam_no_spam[x] != spam:
             print("Model failed to predict correctly")
         else:
+            correct = correct + 1
             print("Model predicted correctly")
         print("\n")
+    print(f"{correct} out of {expected} are detected correctly\n")
 
 
 def main():
@@ -355,19 +360,19 @@ def main():
 
     model = SpamDectionHyperModel()
     tuner = kt.Hyperband(
-       model,
-       objective="val_accuracy",
-       max_epochs=100,
-       directory="hyper_tuning",
-       project_name="spam-keras",
+        model,
+        objective="val_accuracy",
+        max_epochs=100,
+        directory="hyper_tuning",
+        project_name="spam-keras",
     )
     print("[Step 3/6] Tuning hypervalues")
     best_hps = train_hyperparamters(
-       training_sentences_final,
-       testing_sentences_final,
-       training_labels_final,
-       testing_labels_final,
-       tuner,
+        training_sentences_final,
+        testing_sentences_final,
+        training_labels_final,
+        testing_labels_final,
+        tuner,
     )
 
     print("[Step 4/6] Training model")

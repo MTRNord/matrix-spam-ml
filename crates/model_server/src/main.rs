@@ -30,8 +30,7 @@ async fn main() -> Result<()> {
     };
 
     let mut graph = Graph::new();
-    let bundle =
-        SavedModelBundle::load(&SessionOptions::new(), ["serve"], &mut graph, model_path)?;
+    let bundle = SavedModelBundle::load(&SessionOptions::new(), ["serve"], &mut graph, model_path)?;
     GRAPH.set(graph).unwrap();
     MODEL.set(bundle).unwrap();
 
@@ -150,15 +149,15 @@ async fn submit_for_review(
     // Sanitize
     // We remove newlines, html tags and links
     let sanitized = strip::strip_tags(&payload.input_data);
-    let sanitized = sanitized.replace(['\r', '\n'], " ");
+    //let sanitized = sanitized.replace(['\r', '\n'], " ");
     let mut sanitized = trim_whitespace(&sanitized);
-    let mut finder = LinkFinder::new();
-    let cloned_sanitized = sanitized.clone();
-    finder.url_must_have_scheme(false);
-    let links: Vec<_> = finder.links(&cloned_sanitized).collect();
-    for link in links {
-        sanitized = sanitized.replace(link.as_str(), " ");
-    }
+    //let mut finder = LinkFinder::new();
+    //let cloned_sanitized = sanitized.clone();
+    //finder.url_must_have_scheme(false);
+    //let links: Vec<_> = finder.links(&cloned_sanitized).collect();
+    //for link in links {
+    //    sanitized = sanitized.replace(link.as_str(), " ");
+    //}
     match file {
         Ok(mut file) => {
             if let Err(e) = writeln!(file, "{}", sanitized) {

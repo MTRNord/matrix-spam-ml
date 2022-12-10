@@ -12,8 +12,6 @@ The current code base is fast moving. Expect to change rapidly.
 
 To train the model, you need to have a set of labeled data.
 This data is at `./input/MatrixData`. It is a TSV file.
-Please note that URLs should not be added as well as newlines.
-Newlines will be stripped anyway and URLs tend to break the model result.
 
 To train the model, run `python3 model_v2.py`. This will train the model and save it to `./model/`.
 Please make sure you installed tensorflow.

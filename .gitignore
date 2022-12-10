@@ -11,3 +11,4 @@ node_modules
 ml-bot.json
 config.yaml
 ml-bot-store
+dist

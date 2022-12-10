@@ -34,6 +34,7 @@ const storage = new SimpleFsStorageProvider("ml-bot.json");
 // Broken
 //const cryptoProvider = new RustSdkCryptoStorageProvider("./ml-bot-store");
 
+tf.enableProdMode()
 const model = await tf.node.loadSavedModel(config.modelPath);
 
 // Finally, let's create the client and set it to autojoin rooms. Autojoining is typical of bots to ensure
@@ -59,7 +60,7 @@ async function handleMessage(roomId: string, event: any) {
 
     // Check if spam
     const data = tf.tensor([body])
-    const prediction: Tensor<Rank> = model.predict(data) as Tensor<Rank>;
+    const prediction: Tensor<Rank.R2> = model.predict(data) as Tensor<Rank.R2>;
     const prediction_data: number[][] = await prediction.array() as number[][];
     console.log(`Prediction: ${prediction_data}`);
 

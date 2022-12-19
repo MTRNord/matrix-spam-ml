@@ -17,5 +17,10 @@
     "@tensorflow/tfjs-node": "^4.1.0",
     "js-yaml": "^4.1.0",
     "matrix-bot-sdk": "^0.6.2"
+  },
+  "overrides": {
+    "matrix-bot-sdk": {
+      "@matrix-org/matrix-sdk-crypto-nodejs": "0.1.0-beta.1"
+    }
   }
 }

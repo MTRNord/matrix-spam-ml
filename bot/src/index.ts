@@ -216,6 +216,7 @@ class Bot {
                 "space.midnightthoughts.spam_score": prediction_value.toFixed(3),
                 "space.midnightthoughts.sending_user": mxid,
                 "space.midnightthoughts.sending_room": roominfo,
+                "space.midnightthoughts.event_id": event.eventId,
             });
 
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, BAN_REACTION);

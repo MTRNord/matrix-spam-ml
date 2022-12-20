@@ -22,6 +22,14 @@ type Config = {
     warningsRoom: string;
 };
 
+type HelperMessageEvent = {
+    content: {
+        msgtype: string | undefined,
+        body: string | undefined
+    } | undefined,
+    sender: string
+};
+
 class Bot {
     public static async createBot() {
         const config = load(await readFile("./config.yaml", "utf8")) as Config;
@@ -96,30 +104,33 @@ class Bot {
 
     private constructor(private config: Config, private client: MatrixClient, private model: TFSavedModel) {
         // Before we start the bot, register our command handler
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         client.on("room.message", this.handleMessage.bind(this));
 
         // Now that everything is set up, start the bot. This will start the sync loop and run until killed.
-        client.start().then(() => console.log("Bot started!"));
+        client.start().then(() => console.log("Bot started!")).catch(console.error);
     }
 
     // This is the command handler we registered a few lines up
-    private async handleMessage(roomId: string, event: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private async handleMessage(roomId: string, event: HelperMessageEvent): Promise<void> {
         // Don't handle unhelpful events (ones that aren't text messages, are redacted, or sent by us)
-        if (event['content']?.['msgtype'] !== 'm.text') return;
-        if (event['sender'] === await this.client.getUserId()) return;
+        if (event.content?.msgtype !== 'm.text') return;
+        if (event.sender === await this.client.getUserId()) return;
 
-        const body = event['content']['body'];
         if (roomId !== this.config.adminRoom && roomId !== this.config.warningsRoom) {
-            await this.checkSpam(event, body, roomId);
+            await this.checkSpam(event, event.content?.body ?? "", roomId);
         }
     }
 
-    private async checkSpam(event: any, body: string, roomId: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private async checkSpam(event: HelperMessageEvent, body: string, roomId: string) {
         // Check if spam
         const data = tf.tensor([body])
         const prediction: Tensor<Rank.R2> = this.model.predict(data) as Tensor<Rank.R2>;
-        const prediction_data: number[][] = await prediction.array() as number[][];
-        console.log(`Prediction: ${prediction_data}`);
+        const prediction_data: number[][] = await prediction.array();
+        console.log(`Checking: "${body}"`);
+        console.log(`Prediction: ${prediction_data.toString()}`);
 
         const prediction_value = ((prediction_data[0] ?? [])[0] ?? 0);
         if (prediction_value > 0.8) {
@@ -128,7 +139,7 @@ class Bot {
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "🚨 Ban User");
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "⚠️ Kick User");
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "✅ False positive");
-            var eventContent = Buffer.from(JSON.stringify(event), 'utf8');
+            const eventContent = Buffer.from(JSON.stringify(event), 'utf8');
             const media = await this.client.uploadContent(eventContent, "application/json", "event.json");
             await this.client.sendMessage(this.config.warningsRoom, {
                 msgtype: "m.file",

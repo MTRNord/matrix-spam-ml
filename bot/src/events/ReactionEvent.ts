@@ -42,4 +42,12 @@ export class ReactionEvent<T extends ReactionEventContent> extends RoomEvent<T> 
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-extra-non-null-assertion
         return this.content["m.relates_to"]!!;
     }
+
+    public get reaction(): string | undefined {
+        return this.content["m.relates_to"]?.key;
+    }
+
+    public get targetEventId(): string | undefined {
+        return this.content["m.relates_to"]?.event_id;
+    }
 }

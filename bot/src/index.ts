@@ -17,6 +17,7 @@ import * as tf from "@tensorflow/tfjs-node";
 import { Rank, Tensor } from "@tensorflow/tfjs-node";
 import { TFSavedModel } from "@tensorflow/tfjs-node/dist/saved_model";
 import { ReactionEvent } from "./events/ReactionEvent";
+import { htmlToText } from "html-to-text";
 
 type Config = {
     homeserver: string;
@@ -27,6 +28,11 @@ type Config = {
     // A possibly public room where warnings land which also is used to issue actions from as an admin
     warningsRoom: string;
 };
+
+const THRESHOLD = 0.8;
+const BAN_REACTION = "🚨 Ban User";
+const KICK_REACTION = "⚠️ Kick User";
+const FALSE_POSITIVE_REACTION = "✅ False positive";
 
 class Bot {
     public static async createBot() {
@@ -114,12 +120,38 @@ class Bot {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private async handleEvents(_roomId: string, ev: any): Promise<void> {
+    private async handleEvents(roomId: string, ev: any): Promise<void> {
         // For now only handle reactions
         const event = new ReactionEvent(ev);
+        if (event.isRedacted) return; // Ignore redacted events
         if (event.sender === await this.client.getUserId()) return; // Ignore ourselves
 
+        let reactedToEvent: { content: { "space.midnightthoughts.sending_user": string } } | undefined;
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            reactedToEvent = await this.client.getEvent(roomId, event.targetEventId ?? "");
+
+        } catch (e) {
+            LogService.error("index", "Could not get event", e);
+            return;
+        }
+
+        // Making typescript happy
+        if (reactedToEvent == undefined) {
+            LogService.error("index", "Could not get event");
+            return;
+        }
+
         // TODO: parse actions taken and handle them
+        if (event.reaction === BAN_REACTION) {
+            LogService.info("index", `Admin selected ban for ${reactedToEvent.content["space.midnightthoughts.sending_user"]} on ${event.targetEventId ?? "unknown"}`);
+        }
+        if (event.reaction === KICK_REACTION) {
+            LogService.info("index", `Admin selected kick for ${reactedToEvent.content["space.midnightthoughts.sending_user"]} on ${event.targetEventId ?? "unknown"}`);
+        }
+        if (event.reaction === FALSE_POSITIVE_REACTION) {
+            LogService.info("index", `Admin selected false positive for ${reactedToEvent.content["space.midnightthoughts.sending_user"]} on ${event.targetEventId ?? "unknown"}`);
+        }
     }
 
     // This is the command handler we registered a few lines up
@@ -145,8 +177,7 @@ class Bot {
         LogService.info("index", `Prediction: ${prediction_data.toString()}`);
 
         const prediction_value = ((prediction_data[0] ?? [])[0] ?? 0);
-        if (prediction_value > 0.8) {
-            // TODO: reverse resolve alias for the roomID and make pill.
+        if (prediction_value > THRESHOLD) {
             const mxid = event.sender;
             const displayname = (await (this.client.getUserProfile(mxid) as Promise<MatrixProfileInfo>)).displayname ?? mxid;
             let alias = roomId;
@@ -165,10 +196,31 @@ class Bot {
                 LogService.debug("index", `Failed to get name for ${roomId}`);
             }
 
-            const alert_event_id = await this.client.sendHtmlText(this.config.warningsRoom, `<blockquote>\n<p>${body}</p>\n</blockquote>\n<p>Above message was detected as spam. See json file for full event and use reactions to take action or no action.</p><p>It was sent by <a href="matrix:u/${mxid.replace("@", "")}">${displayname}</a> in <a href="${room_url}">${roomname}</a></p><p>Spam Score is: ${prediction_value.toFixed(3)}</p>\n`);
-            await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "🚨 Ban User");
-            await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "⚠️ Kick User");
-            await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "✅ False positive");
+            const html = `<blockquote>\n<p>${body}</p>\n</blockquote>\n<p>Above message was detected as spam. See json file for full event and use reactions to take action or no action.</p><p>It was sent by <a href="matrix:u/${mxid.replace("@", "")}">${displayname}</a> in <a href="${room_url}">${roomname}</a></p><p>Spam Score is: ${prediction_value.toFixed(3)}</p>\n`;
+            const roominfo: { roomId: string; name: string | undefined; alias: string | undefined; } = {
+                roomId: roomId,
+                name: undefined,
+                alias: undefined
+            };
+            if (roomname !== roomId) {
+                roominfo["name"] = roomname;
+            }
+            if (alias !== roomId) {
+                roominfo["alias"] = alias;
+            }
+            const alert_event_id = await this.client.sendMessage(this.config.warningsRoom, {
+                body: htmlToText(html, { wordwrap: false }),
+                msgtype: "m.text",
+                format: "org.matrix.custom.html",
+                formatted_body: html,
+                "space.midnightthoughts.spam_score": prediction_value.toFixed(3),
+                "space.midnightthoughts.sending_user": mxid,
+                "space.midnightthoughts.sending_room": roominfo,
+            });
+
+            await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, BAN_REACTION);
+            await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, KICK_REACTION);
+            await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, FALSE_POSITIVE_REACTION);
             const eventContent = Buffer.from(JSON.stringify(event.raw), 'utf8');
             const media = await this.client.uploadContent(eventContent, "application/json", "event.json");
             await this.client.sendMessage(this.config.warningsRoom, {
@@ -189,4 +241,3 @@ class Bot {
 }
 
 await Bot.createBot();
-

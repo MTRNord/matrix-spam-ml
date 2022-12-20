@@ -2,15 +2,18 @@ import {
     MatrixClient,
     SimpleFsStorageProvider,
     AutojoinRoomsMixin,
-    // MessageEvent,
-    // TextualMessageEventContent,
     RustSdkCryptoStorageProvider,
+    LogService,
+    RichConsoleLogger,
+    MessageEvent,
+    MessageEventContent,
 } from "matrix-bot-sdk";
 import { readFile } from "fs/promises";
 import { load } from "js-yaml";
 import * as tf from "@tensorflow/tfjs-node";
 import { Rank, Tensor } from "@tensorflow/tfjs-node";
 import { TFSavedModel } from "@tensorflow/tfjs-node/dist/saved_model";
+import { ReactionEvent } from "./events/ReactionEvent";
 
 type Config = {
     homeserver: string;
@@ -22,51 +25,45 @@ type Config = {
     warningsRoom: string;
 };
 
-type HelperMessageEvent = {
-    content: {
-        msgtype: string | undefined,
-        body: string | undefined
-    } | undefined,
-    sender: string
-};
-
 class Bot {
     public static async createBot() {
+        LogService.setLogger(new RichConsoleLogger());
+        LogService.muteModule("Metrics");
         const config = load(await readFile("./config.yaml", "utf8")) as Config;
 
         // Add some divider for clarity after tensorflow loaded up
         const line = '-'.repeat(process.stdout.columns);
-        console.log(line);
+        LogService.info("index", line);
 
         // Check if required fields are set
         if (config.homeserver == undefined && config.accessToken == undefined) {
-            console.error("Missing homeserver and accessToken config values");
+            LogService.error("index", "Missing homeserver and accessToken config values");
             process.exit(1);
         } else if (config.homeserver == undefined) {
-            console.error("Missing homeserver config value");
+            LogService.error("index", "Missing homeserver config value");
             process.exit(1);
         } else if (config.accessToken == undefined) {
-            console.error("Missing accessToken config value");
+            LogService.error("index", "Missing accessToken config value");
             process.exit(1);
         }
 
         if (config.adminRoom == undefined && config.warningsRoom == undefined) {
-            console.error("Missing adminRoom and warningsRoom config values");
+            LogService.error("index", "Missing adminRoom and warningsRoom config values");
             process.exit(1);
         } else if (config.adminRoom == undefined) {
-            console.error("Missing adminRoom config value");
+            LogService.error("index", "Missing adminRoom config value");
             process.exit(1);
         } else if (config.warningsRoom == undefined) {
-            console.error("Missing warningsRoom config value");
+            LogService.error("index", "Missing warningsRoom config value");
             process.exit(1);
         }
 
         if (config.adminRoom.startsWith("#")) {
-            console.error("adminRoom config value needs to be a roomid starting with a \"!\"");
+            LogService.error("index", "adminRoom config value needs to be a roomid starting with a \"!\"");
             process.exit(1);
         }
         if (config.warningsRoom.startsWith("#")) {
-            console.error("warningsRoom config value needs to be a roomid starting with a \"!\"");
+            LogService.error("index", "warningsRoom config value needs to be a roomid starting with a \"!\"");
             process.exit(1);
         }
 
@@ -92,7 +89,7 @@ class Bot {
         // they can be easily added to any room.
         const client = new MatrixClient(homeserverUrl, accessToken, storage, cryptoProvider);
 
-        // TODO replace with manual handling to need admin approval
+        // TODO: replace with manual handling to need admin approval
         AutojoinRoomsMixin.setupOnClient(client);
 
         // Join rooms as needed but crash if missing
@@ -106,17 +103,29 @@ class Bot {
         // Before we start the bot, register our command handler
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         client.on("room.message", this.handleMessage.bind(this));
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        client.on("room.event", this.handleEvents.bind(this));
 
         // Now that everything is set up, start the bot. This will start the sync loop and run until killed.
-        client.start().then(() => console.log("Bot started!")).catch(console.error);
+        client.start().then(() => LogService.info("index", "Bot started!")).catch(console.error);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private async handleEvents(_roomId: string, ev: any): Promise<void> {
+        // For now only handle reactions
+        const event = new ReactionEvent(ev);
+        if (event.sender === await this.client.getUserId()) return; // Ignore ourselves
+
+        // TODO: parse actions taken and handle them
     }
 
     // This is the command handler we registered a few lines up
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private async handleMessage(roomId: string, event: HelperMessageEvent): Promise<void> {
-        // Don't handle unhelpful events (ones that aren't text messages, are redacted, or sent by us)
-        if (event.content?.msgtype !== 'm.text') return;
-        if (event.sender === await this.client.getUserId()) return;
+    private async handleMessage(roomId: string, ev: any): Promise<void> {
+        const event = new MessageEvent(ev);
+        if (event.isRedacted) return; // Ignore redacted events that come through
+        if (event.sender === await this.client.getUserId()) return; // Ignore ourselves
+        if (event.messageType !== "m.text") return; // Ignore non-text messages
 
         if (roomId !== this.config.adminRoom && roomId !== this.config.warningsRoom) {
             await this.checkSpam(event, event.content?.body ?? "", roomId);
@@ -124,22 +133,22 @@ class Bot {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private async checkSpam(event: HelperMessageEvent, body: string, roomId: string) {
+    private async checkSpam(event: MessageEvent<MessageEventContent>, body: string, roomId: string) {
         // Check if spam
         const data = tf.tensor([body])
         const prediction: Tensor<Rank.R2> = this.model.predict(data) as Tensor<Rank.R2>;
         const prediction_data: number[][] = await prediction.array();
-        console.log(`Checking: "${body}"`);
-        console.log(`Prediction: ${prediction_data.toString()}`);
+        LogService.info("index", `Checking: "${body}"`);
+        LogService.info("index", `Prediction: ${prediction_data.toString()}`);
 
         const prediction_value = ((prediction_data[0] ?? [])[0] ?? 0);
         if (prediction_value > 0.8) {
-            // TODO reverse resolve alias for the roomID and make pill.
+            // TODO: reverse resolve alias for the roomID and make pill.
             const alert_event_id = await this.client.sendHtmlText(this.config.warningsRoom, `<blockquote>\n<p>${body}</p>\n</blockquote>\n<p>Above message was detected as spam. See json file for full event and use reactions to take action or no action.</p>\n<p>It was sent in ${roomId}</p>\n<p>Spam Score is: ${prediction_value.toFixed(3)}</p>\n`);
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "🚨 Ban User");
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "⚠️ Kick User");
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "✅ False positive");
-            const eventContent = Buffer.from(JSON.stringify(event), 'utf8');
+            const eventContent = Buffer.from(JSON.stringify(event.raw), 'utf8');
             const media = await this.client.uploadContent(eventContent, "application/json", "event.json");
             await this.client.sendMessage(this.config.warningsRoom, {
                 msgtype: "m.file",
@@ -152,8 +161,7 @@ class Bot {
                 url: media,
             })
         } else {
-            // const message = new MessageEvent(event);
-            // const textEvent = new MessageEvent<TextualMessageEventContent>(message.raw);
+            // const textEvent = new MessageEvent<TextualMessageEventContent>(event.raw);
             //await this.client.unstableApis.addReactionToEvent(roomId, textEvent.eventId, "Classified Not Spam")
         }
     }

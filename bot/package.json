@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "run": "node --experimental-specifier-resolution=node ./dist/index.js"
   },
   "author": "MTRNord <mtrnord@nordgedanken.dev>",
   "license": "Apache-2.0",

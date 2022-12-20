@@ -7,6 +7,9 @@ import {
     RichConsoleLogger,
     MessageEvent,
     MessageEventContent,
+    MatrixProfileInfo,
+    CanonicalAliasEventContent,
+    RoomNameEventContent,
 } from "matrix-bot-sdk";
 import { readFile } from "fs/promises";
 import { load } from "js-yaml";
@@ -33,7 +36,7 @@ class Bot {
 
         // Add some divider for clarity after tensorflow loaded up
         const line = '-'.repeat(process.stdout.columns);
-        LogService.info("index", line);
+        console.log(line);
 
         // Check if required fields are set
         if (config.homeserver == undefined && config.accessToken == undefined) {
@@ -144,7 +147,25 @@ class Bot {
         const prediction_value = ((prediction_data[0] ?? [])[0] ?? 0);
         if (prediction_value > 0.8) {
             // TODO: reverse resolve alias for the roomID and make pill.
-            const alert_event_id = await this.client.sendHtmlText(this.config.warningsRoom, `<blockquote>\n<p>${body}</p>\n</blockquote>\n<p>Above message was detected as spam. See json file for full event and use reactions to take action or no action.</p>\n<p>It was sent in ${roomId}</p>\n<p>Spam Score is: ${prediction_value.toFixed(3)}</p>\n`);
+            const mxid = event.sender;
+            const displayname = (await (this.client.getUserProfile(mxid) as Promise<MatrixProfileInfo>)).displayname ?? mxid;
+            let alias = roomId;
+            let roomname = roomId;
+            let room_url = `matrix:roomid/${roomId.replace("!", "")}?via=${this.config.homeserver}`;
+            try {
+                alias = (await (this.client.getRoomStateEvent(roomId, "m.room.canonical_alias", "") as Promise<CanonicalAliasEventContent>)).alias;
+                roomname = alias;
+                room_url = `matrix:r/${alias.replace("#", "").replace("!", "")}`;
+            } catch (e) {
+                LogService.debug("index", `Failed to get alias for ${roomId}`);
+            }
+            try {
+                roomname = (await (this.client.getRoomStateEvent(roomId, "m.room.name", "") as Promise<RoomNameEventContent>)).name;
+            } catch (e) {
+                LogService.debug("index", `Failed to get name for ${roomId}`);
+            }
+
+            const alert_event_id = await this.client.sendHtmlText(this.config.warningsRoom, `<blockquote>\n<p>${body}</p>\n</blockquote>\n<p>Above message was detected as spam. See json file for full event and use reactions to take action or no action.</p><p>It was sent by <a href="matrix:u/${mxid.replace("@", "")}">${displayname}</a> in <a href="${room_url}">${roomname}</a></p><p>Spam Score is: ${prediction_value.toFixed(3)}</p>\n`);
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "🚨 Ban User");
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "⚠️ Kick User");
             await this.client.unstableApis.addReactionToEvent(this.config.warningsRoom, alert_event_id, "✅ False positive");

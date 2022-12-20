@@ -131,7 +131,7 @@ class Bot {
         if (event.messageType !== "m.text") return; // Ignore non-text messages
 
         if (roomId !== this.config.adminRoom && roomId !== this.config.warningsRoom) {
-            await this.checkSpam(event, event.content?.body ?? "", roomId);
+            await this.checkSpam(event, event.content?.body.trim() ?? "", roomId);
         }
     }
 
@@ -151,7 +151,7 @@ class Bot {
             const displayname = (await (this.client.getUserProfile(mxid) as Promise<MatrixProfileInfo>)).displayname ?? mxid;
             let alias = roomId;
             let roomname = roomId;
-            let room_url = `matrix:roomid/${roomId.replace("!", "")}?via=${this.config.homeserver}`;
+            let room_url = `matrix:roomid/${roomId.replace("!", "")}?via=${this.config.homeserver.replace("https://", "")}`;
             try {
                 alias = (await (this.client.getRoomStateEvent(roomId, "m.room.canonical_alias", "") as Promise<CanonicalAliasEventContent>)).alias;
                 roomname = alias;

@@ -18,8 +18,10 @@ import { Rank, Tensor } from "@tensorflow/tfjs-node";
 import { TFSavedModel } from "@tensorflow/tfjs-node/dist/saved_model";
 import { ReactionEvent } from "./events/ReactionEvent";
 import { htmlToText } from "html-to-text";
+import { BAN_REACTION, FALSE_POSITIVE_REACTION, getReactionHandler, KICK_REACTION } from "./reactionHandlers/reactionHandler";
+import BanListHandler from "./banlist/banlist";
 
-type Config = {
+export type Config = {
     homeserver: string;
     accessToken: string;
     modelPath: string;
@@ -27,14 +29,15 @@ type Config = {
     adminRoom: string;
     // A possibly public room where warnings land which also is used to issue actions from as an admin
     warningsRoom: string;
+    // TODO: Dont set this via config but via a setup in the room on first launch or via the cli or something.
+    banlistRoom: string;
 };
 
 const THRESHOLD = 0.8;
-const BAN_REACTION = "🚨 Ban User";
-const KICK_REACTION = "⚠️ Kick User";
-const FALSE_POSITIVE_REACTION = "✅ False positive";
+const startUpMessage = "Bot is starting up...";
 
 class Bot {
+    private readonly policyRoomHandler = new BanListHandler(this.client, this.config);
     public static async createBot() {
         LogService.setLogger(new RichConsoleLogger());
         LogService.muteModule("Metrics");
@@ -105,6 +108,7 @@ class Bot {
         await client.joinRoom(config.adminRoom);
         await client.joinRoom(config.warningsRoom);
 
+
         return new Bot(config, client, model);
     }
 
@@ -116,7 +120,12 @@ class Bot {
         client.on("room.event", this.handleEvents.bind(this));
 
         // Now that everything is set up, start the bot. This will start the sync loop and run until killed.
-        client.start().then(() => LogService.info("index", "Bot started!")).catch(console.error);
+        client.start().then(async () => {
+            LogService.info("index", "Bot started!");
+            // Send notice that bot is starting into both rooms
+            await client.sendNotice(config.adminRoom, startUpMessage);
+            await client.sendNotice(config.warningsRoom, startUpMessage);
+        }).catch(console.error);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,31 +135,13 @@ class Bot {
         if (event.isRedacted) return; // Ignore redacted events
         if (event.sender === await this.client.getUserId()) return; // Ignore ourselves
 
-        let reactedToEvent: { content: { "space.midnightthoughts.sending_user": string } } | undefined;
+
         try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            reactedToEvent = await this.client.getEvent(roomId, event.targetEventId ?? "");
-
+            await getReactionHandler(roomId, event, this.client, this.config, this.policyRoomHandler).handleReaction();
         } catch (e) {
-            LogService.error("index", "Could not get event", e);
             return;
-        }
-
-        // Making typescript happy
-        if (reactedToEvent == undefined) {
-            LogService.error("index", "Could not get event");
-            return;
-        }
-
-        // TODO: parse actions taken and handle them
-        if (event.reaction === BAN_REACTION) {
-            LogService.info("index", `Admin selected ban for ${reactedToEvent.content["space.midnightthoughts.sending_user"]} on ${event.targetEventId ?? "unknown"}`);
-        }
-        if (event.reaction === KICK_REACTION) {
-            LogService.info("index", `Admin selected kick for ${reactedToEvent.content["space.midnightthoughts.sending_user"]} on ${event.targetEventId ?? "unknown"}`);
-        }
-        if (event.reaction === FALSE_POSITIVE_REACTION) {
-            LogService.info("index", `Admin selected false positive for ${reactedToEvent.content["space.midnightthoughts.sending_user"]} on ${event.targetEventId ?? "unknown"}`);
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            //LogService.error("index", `Error handling reaction: ${e}`);
         }
     }
 
